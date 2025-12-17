@@ -56,6 +56,19 @@ namespace BatchNote.Services
         }
 
         /// <summary>
+        /// 注销指定的全局热键
+        /// </summary>
+        public bool Unregister(IntPtr windowHandle, int id)
+        {
+            bool result = UnregisterHotKey(windowHandle, id);
+            if (id == _hotkeyId)
+            {
+                _isRegistered = false;
+            }
+            return result;
+        }
+
+        /// <summary>
         /// 处理 Windows 消息，检测热键
         /// </summary>
         /// <param name="m">Windows 消息</param>

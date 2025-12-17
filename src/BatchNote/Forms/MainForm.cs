@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -14,10 +15,15 @@ namespace BatchNote.Forms
         private const int HOTKEY_ID = 9000;
         private const uint MOD_CONTROL = 0x0002;
         private const uint MOD_SHIFT = 0x0004;
+        private const uint MOD_ALT = 0x0001;
 
         private HotkeyService _hotkeyService;
         private CompositeService _compositeService;
         private HistoryService _historyService;
+        private SettingsService _settingsService;
+
+        private NotifyIcon _notifyIcon;
+        private ContextMenuStrip _trayMenu;
 
         private Panel _historyPanel;
         private FlowLayoutPanel _historyListPanel;
@@ -37,11 +43,14 @@ namespace BatchNote.Forms
             InitializeComponent();
             InitializeServices();
             InitializeUI();
+            InitializeTrayIcon();
             RegisterHotkey();
+            ApplyStartupBehavior();
         }
 
         private void InitializeServices()
         {
+            _settingsService = new SettingsService();
             _hotkeyService = new HotkeyService();
             _compositeService = new CompositeService();
             _historyService = new HistoryService();
@@ -404,20 +413,217 @@ namespace BatchNote.Forms
 
         #endregion
 
+        #region 托盘图标
+
+        /// <summary>
+        /// 初始化系统托盘图标
+        /// </summary>
+        private void InitializeTrayIcon()
+        {
+            // 创建托盘菜单
+            _trayMenu = new ContextMenuStrip();
+            _trayMenu.Font = new Font("Microsoft YaHei", 9);
+
+            // 打开主界面
+            var openItem = new ToolStripMenuItem("打开主界面");
+            openItem.Font = new Font("Microsoft YaHei", 9, FontStyle.Bold);
+            openItem.Click += (s, e) => ShowMainWindow();
+            _trayMenu.Items.Add(openItem);
+
+            _trayMenu.Items.Add(new ToolStripSeparator());
+
+            // 设置全局热键
+            var hotkeyItem = new ToolStripMenuItem("设置全局热键...");
+            hotkeyItem.Click += (s, e) => ShowHotkeySettings();
+            _trayMenu.Items.Add(hotkeyItem);
+
+            // 开机自动启动
+            var autoStartItem = new ToolStripMenuItem("开机自动启动");
+            autoStartItem.CheckOnClick = true;
+            autoStartItem.Checked = _settingsService.Settings.AutoStart;
+            autoStartItem.CheckedChanged += (s, e) =>
+            {
+                _settingsService.SetAutoStart(autoStartItem.Checked);
+            };
+            _trayMenu.Items.Add(autoStartItem);
+
+            // 在任务栏显示
+            var taskbarItem = new ToolStripMenuItem("在任务栏显示");
+            taskbarItem.CheckOnClick = true;
+            taskbarItem.Checked = _settingsService.Settings.ShowInTaskbar;
+            taskbarItem.CheckedChanged += (s, e) =>
+            {
+                _settingsService.SetShowInTaskbar(taskbarItem.Checked);
+                this.ShowInTaskbar = taskbarItem.Checked;
+            };
+            _trayMenu.Items.Add(taskbarItem);
+
+            _trayMenu.Items.Add(new ToolStripSeparator());
+
+            // 关于
+            var aboutItem = new ToolStripMenuItem("关于");
+            aboutItem.Click += (s, e) =>
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "https://www.baibaomen.com",
+                        UseShellExecute = true
+                    });
+                }
+                catch { }
+            };
+            _trayMenu.Items.Add(aboutItem);
+
+            _trayMenu.Items.Add(new ToolStripSeparator());
+
+            // 退出
+            var exitItem = new ToolStripMenuItem("退出");
+            exitItem.Click += (s, e) => ExitApplication();
+            _trayMenu.Items.Add(exitItem);
+
+            // 创建托盘图标
+            _notifyIcon = new NotifyIcon
+            {
+                Text = "BatchNote - 批量截图批注工具",
+                ContextMenuStrip = _trayMenu,
+                Visible = true
+            };
+
+            // 使用程序图标，如果没有则使用默认系统图标
+            try
+            {
+                _notifyIcon.Icon = this.Icon ?? SystemIcons.Application;
+            }
+            catch
+            {
+                _notifyIcon.Icon = SystemIcons.Application;
+            }
+
+            // 双击打开主界面
+            _notifyIcon.DoubleClick += (s, e) => ShowMainWindow();
+            // 单击也打开主界面（更符合用户习惯）
+            _notifyIcon.Click += (s, e) =>
+            {
+                if (((MouseEventArgs)e).Button == MouseButtons.Left)
+                {
+                    ShowMainWindow();
+                }
+            };
+
+            // 应用任务栏设置
+            this.ShowInTaskbar = _settingsService.Settings.ShowInTaskbar;
+        }
+
+        /// <summary>
+        /// 应用启动行为
+        /// </summary>
+        private void ApplyStartupBehavior()
+        {
+            if (_settingsService.Settings.IsFirstRun)
+            {
+                // 首次运行，显示主窗口
+                this.Show();
+                _settingsService.MarkFirstRunComplete();
+            }
+            else
+            {
+                // 非首次运行，最小化到托盘
+                this.WindowState = FormWindowState.Minimized;
+                this.Hide();
+            }
+        }
+
+        /// <summary>
+        /// 显示主窗口
+        /// </summary>
+        private void ShowMainWindow()
+        {
+            this.Show();
+            this.WindowState = FormWindowState.Normal;
+            this.Activate();
+            this.BringToFront();
+        }
+
+        /// <summary>
+        /// 显示热键设置对话框
+        /// </summary>
+        private void ShowHotkeySettings()
+        {
+            using (var form = new HotkeySettingsForm(
+                _settingsService.Settings.HotkeyKey,
+                _settingsService.Settings.HotkeyModifiers))
+            {
+                if (form.ShowDialog(this) == DialogResult.OK)
+                {
+                    // 保存新热键
+                    _settingsService.SetHotkey(form.SelectedKey, form.SelectedModifiers);
+
+                    // 重新注册热键
+                    _hotkeyService.Unregister(this.Handle, HOTKEY_ID);
+                    var success = _hotkeyService.Register(
+                        this.Handle,
+                        HOTKEY_ID,
+                        form.SelectedKey,
+                        _settingsService.GetHotkeyModifiersAsUint()
+                    );
+
+                    if (success)
+                    {
+                        ShowStatus($"✅ 热键已更新为 {GetHotkeyDisplayText()}", true);
+                    }
+                    else
+                    {
+                        ShowStatus("❌ 热键注册失败，可能与其他程序冲突", false);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 获取当前热键显示文本
+        /// </summary>
+        private string GetHotkeyDisplayText()
+        {
+            var settings = _settingsService.Settings;
+            string text = "";
+            if ((settings.HotkeyModifiers & Keys.Control) == Keys.Control) text += "Ctrl+";
+            if ((settings.HotkeyModifiers & Keys.Alt) == Keys.Alt) text += "Alt+";
+            if ((settings.HotkeyModifiers & Keys.Shift) == Keys.Shift) text += "Shift+";
+            text += settings.HotkeyKey.ToString();
+            return text;
+        }
+
+        /// <summary>
+        /// 完全退出程序
+        /// </summary>
+        private void ExitApplication()
+        {
+            _notifyIcon.Visible = false;
+            _notifyIcon.Dispose();
+            _hotkeyService?.Dispose();
+            _previewForm?.Dispose();
+            Application.Exit();
+        }
+
+        #endregion
+
         private void RegisterHotkey()
         {
-            // 注册 Ctrl+Shift+B 热键
+            // 从设置中读取热键配置
+            var settings = _settingsService.Settings;
             var success = _hotkeyService.Register(
                 this.Handle,
                 HOTKEY_ID,
-                Keys.B,
-                MOD_CONTROL | MOD_SHIFT
+                settings.HotkeyKey,
+                _settingsService.GetHotkeyModifiersAsUint()
             );
 
             if (!success)
             {
                 MessageBox.Show(
-                    "无法注册全局热键 Ctrl+Shift+B，可能与其他程序冲突。\n您仍可以正常使用程序，但无法通过热键呼出。",
+                    $"无法注册全局热键 {GetHotkeyDisplayText()}，可能与其他程序冲突。\n您仍可以正常使用程序，但无法通过热键呼出。",
                     "提示",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
@@ -754,6 +960,13 @@ namespace BatchNote.Forms
             }
             else
             {
+                // 通过 ExitApplication 退出时会执行清理
+                // 这里处理其他关闭原因（如系统关机）
+                if (_notifyIcon != null)
+                {
+                    _notifyIcon.Visible = false;
+                    _notifyIcon.Dispose();
+                }
                 _hotkeyService?.Dispose();
                 _previewForm?.Dispose();
             }
