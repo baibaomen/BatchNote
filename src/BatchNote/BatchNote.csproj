@@ -57,9 +57,6 @@
     <Compile Include="Forms\PreviewForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\HistoryForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="Controls\ScreenshotEntryControl.cs">
       <SubType>UserControl</SubType>
     </Compile>

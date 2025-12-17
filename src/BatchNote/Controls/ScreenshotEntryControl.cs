@@ -70,6 +70,15 @@ namespace BatchNote.Controls
 
         public ScreenshotEntryControl()
         {
+            // 启用双缓冲减少闪烁
+            this.SetStyle(
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.UserPaint,
+                true);
+            this.UpdateStyles();
+            this.DoubleBuffered = true;
+            
             InitializeComponents();
         }
 

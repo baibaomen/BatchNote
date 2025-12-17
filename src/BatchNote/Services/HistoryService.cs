@@ -61,7 +61,8 @@ namespace BatchNote.Services
         /// <summary>
         /// 保存合成图到历史记录（包含原始素材）
         /// </summary>
-        public string Save(Bitmap compositeImage, IList<ScreenshotEntry> entries)
+        /// <returns>保存的历史记录对象</returns>
+        public HistoryItem Save(Bitmap compositeImage, IList<ScreenshotEntry> entries)
         {
             if (compositeImage == null) return null;
 
@@ -73,11 +74,18 @@ namespace BatchNote.Services
             Directory.CreateDirectory(folderPath);
 
             var compositeImagePath = Path.Combine(folderPath, "composite.png");
+            var thumbnailPath = Path.Combine(folderPath, "thumbnail.png");
             var metaPath = Path.Combine(folderPath, "meta.json");
             var summaryPath = Path.Combine(folderPath, "summary.txt");
 
             // 保存合成图
             compositeImage.Save(compositeImagePath, ImageFormat.Png);
+            
+            // 保存缩略图（用于历史列表快速加载）
+            using (var thumbnail = CreateThumbnail(compositeImage, 80, 80))
+            {
+                thumbnail.Save(thumbnailPath, ImageFormat.Png);
+            }
 
             // 创建历史记录元数据
             var historyItem = new HistoryItem
@@ -141,7 +149,7 @@ namespace BatchNote.Services
             // 自动清理旧记录
             CleanupOldHistory();
 
-            return compositeImagePath;
+            return historyItem;
         }
 
         /// <summary>
@@ -191,6 +199,49 @@ namespace BatchNote.Services
                 return new Bitmap(imagePath);
             }
             return null;
+        }
+
+        /// <summary>
+        /// 加载历史记录缩略图（快速加载）
+        /// </summary>
+        public Bitmap LoadThumbnail(string id)
+        {
+            var thumbnailPath = Path.Combine(_historyDirectory, id, "thumbnail.png");
+            if (File.Exists(thumbnailPath))
+            {
+                return new Bitmap(thumbnailPath);
+            }
+            // 如果缩略图不存在，则从原图生成（兼容旧记录）
+            var imagePath = Path.Combine(_historyDirectory, id, "composite.png");
+            if (File.Exists(imagePath))
+            {
+                using (var original = new Bitmap(imagePath))
+                {
+                    var thumbnail = CreateThumbnail(original, 80, 80);
+                    // 保存缩略图供下次使用
+                    thumbnail.Save(thumbnailPath, ImageFormat.Png);
+                    return thumbnail;
+                }
+            }
+            return null;
+        }
+        
+        /// <summary>
+        /// 创建缩略图
+        /// </summary>
+        private Bitmap CreateThumbnail(Bitmap source, int maxWidth, int maxHeight)
+        {
+            float ratio = Math.Min((float)maxWidth / source.Width, (float)maxHeight / source.Height);
+            int newWidth = Math.Max(1, (int)(source.Width * ratio));
+            int newHeight = Math.Max(1, (int)(source.Height * ratio));
+
+            var thumbnail = new Bitmap(newWidth, newHeight);
+            using (var g = Graphics.FromImage(thumbnail))
+            {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.DrawImage(source, 0, 0, newWidth, newHeight);
+            }
+            return thumbnail;
         }
 
         /// <summary>
