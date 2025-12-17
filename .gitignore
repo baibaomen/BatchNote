@@ -1,0 +1,36 @@
+# Visual Studio
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+
+# NuGet
+packages/
+*.nupkg
+
+# Build outputs
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+# IDE
+.idea/
+*.swp
+*~
+
+# OS
+Thumbs.db
+.DS_Store
+
+# 协作框架（Git Worktree）
+.collab/
+
+# 身份持久化（本地）
+.my-id/
+
+# 用户数据（运行时生成）
+AppData/
