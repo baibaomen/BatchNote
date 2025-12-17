@@ -10,18 +10,16 @@ namespace BatchNote.Controls
     /// </summary>
     public class ScreenshotEntryControl : UserControl
     {
-        private const int ThumbnailSize = 120;
-        private const int ControlMinHeight = 110;
-        private const int DragHandleWidth = 20;
-        private const int CheckBoxWidth = 40;
-        private const int DeleteButtonWidth = 50;
+        private const int ThumbnailSize = 90;
+        private const int ControlMinHeight = 100;
+        private const int IndexLabelWidth = 36;
+        private const int CheckBoxWidth = 36;
 
         private CheckBox _checkBox;
         private Label _indexLabel;
         private PictureBox _thumbnail;
         private TextBox _commentTextBox;
         private Button _deleteButton;
-        private Panel _dragHandle;
 
         private ScreenshotEntry _entry;
         private bool _isDragging;
@@ -80,100 +78,98 @@ namespace BatchNote.Controls
             // 设置控件属性
             this.Height = ControlMinHeight;
             this.AutoSize = false;
-            this.Padding = new Padding(5);
+            this.Padding = new Padding(6);
             this.BackColor = Color.White;
             this.BorderStyle = BorderStyle.None;
             this.Margin = new Padding(0, 0, 0, 8);
+            this.Cursor = Cursors.SizeAll;
 
-            // 拖拽手柄区域 (加宽到20)
-            _dragHandle = new Panel
+            // 绘制边框
+            this.Paint += (s, e) =>
             {
-                Width = DragHandleWidth,
-                Dock = DockStyle.Left,
-                BackColor = Color.FromArgb(230, 230, 230),
+                using (var pen = new Pen(Color.FromArgb(225, 225, 225), 1))
+                {
+                    e.Graphics.DrawRectangle(pen, 0, 0, this.Width - 1, this.Height - 1);
+                }
+            };
+
+            // 拖拽支持
+            this.MouseDown += DragHandle_MouseDown;
+            this.MouseMove += DragHandle_MouseMove;
+            this.MouseUp += DragHandle_MouseUp;
+
+            // 编号标签 - 放在最左边
+            _indexLabel = new Label
+            {
+                Width = IndexLabelWidth,
+                Height = ControlMinHeight - 12,
+                Location = new Point(6, 6),
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                ForeColor = Color.FromArgb(0, 100, 180),
+                TextAlign = ContentAlignment.MiddleCenter,
+                BackColor = Color.FromArgb(240, 248, 255),
                 Cursor = Cursors.SizeAll
             };
-            _dragHandle.MouseDown += DragHandle_MouseDown;
-            _dragHandle.MouseMove += DragHandle_MouseMove;
-            _dragHandle.MouseUp += DragHandle_MouseUp;
-            // 添加拖动图标提示
-            var dragLabel = new Label
-            {
-                Text = "⋮⋮",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleCenter,
-                ForeColor = Color.FromArgb(150, 150, 150),
-                Font = new Font("Arial", 10, FontStyle.Bold)
-            };
-            dragLabel.MouseDown += DragHandle_MouseDown;
-            dragLabel.MouseMove += DragHandle_MouseMove;
-            dragLabel.MouseUp += DragHandle_MouseUp;
-            _dragHandle.Controls.Add(dragLabel);
+            _indexLabel.MouseDown += DragHandle_MouseDown;
+            _indexLabel.MouseMove += DragHandle_MouseMove;
+            _indexLabel.MouseUp += DragHandle_MouseUp;
 
-            // 勾选框 (移到缩略图左侧，加宽到40)
+            // 勾选框
             _checkBox = new CheckBox
             {
                 Width = CheckBoxWidth,
-                Height = ControlMinHeight - 10,
+                Height = ControlMinHeight - 12,
                 Checked = true,
-                Location = new Point(DragHandleWidth + 5, 5),
+                Location = new Point(IndexLabelWidth + 10, 6),
                 Appearance = Appearance.Button,
                 FlatStyle = FlatStyle.Flat,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Text = "✓",
-                Font = new Font("Arial", 16, FontStyle.Bold),
+                Font = new Font("Segoe UI", 13, FontStyle.Bold),
                 ForeColor = Color.FromArgb(0, 150, 80)
             };
-            _checkBox.FlatAppearance.BorderSize = 0;
-            _checkBox.FlatAppearance.CheckedBackColor = Color.FromArgb(230, 250, 235);
-            _checkBox.FlatAppearance.MouseOverBackColor = Color.FromArgb(240, 245, 255);
+            _checkBox.FlatAppearance.BorderSize = 1;
+            _checkBox.FlatAppearance.BorderColor = Color.FromArgb(0, 180, 100);
+            _checkBox.FlatAppearance.CheckedBackColor = Color.FromArgb(232, 250, 238);
+            _checkBox.FlatAppearance.MouseOverBackColor = Color.FromArgb(245, 252, 248);
             _checkBox.CheckedChanged += (s, e) =>
             {
                 if (_entry != null)
                 {
                     _entry.IsChecked = _checkBox.Checked;
                     _checkBox.Text = _checkBox.Checked ? "✓" : "";
-                    _checkBox.ForeColor = _checkBox.Checked ? Color.FromArgb(0, 150, 80) : Color.Gray;
-                    _checkBox.BackColor = _checkBox.Checked ? Color.FromArgb(230, 250, 235) : Color.Transparent;
+                    _checkBox.ForeColor = _checkBox.Checked ? Color.FromArgb(0, 150, 80) : Color.FromArgb(180, 180, 180);
+                    _checkBox.BackColor = _checkBox.Checked ? Color.FromArgb(232, 250, 238) : Color.FromArgb(250, 250, 250);
+                    _checkBox.FlatAppearance.BorderColor = _checkBox.Checked ? Color.FromArgb(0, 180, 100) : Color.FromArgb(200, 200, 200);
                     CheckedChanged?.Invoke(this, EventArgs.Empty);
                 }
             };
 
-            // 编号标签
-            _indexLabel = new Label
-            {
-                Width = 35,
-                Height = 25,
-                Location = new Point(DragHandleWidth + CheckBoxWidth + 10, 5),
-                Font = new Font("Microsoft YaHei", 10, FontStyle.Bold),
-                ForeColor = Color.FromArgb(80, 80, 80),
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
-            // 缩略图 (在勾选框右侧)
+            // 缩略图
             _thumbnail = new PictureBox
             {
                 Width = ThumbnailSize,
-                Height = ControlMinHeight - 20,
-                Location = new Point(DragHandleWidth + CheckBoxWidth + 10, 30),
+                Height = ControlMinHeight - 12,
+                Location = new Point(IndexLabelWidth + CheckBoxWidth + 14, 6),
                 SizeMode = PictureBoxSizeMode.Zoom,
-                BackColor = Color.FromArgb(248, 248, 248),
-                BorderStyle = BorderStyle.None,
+                BackColor = Color.FromArgb(250, 250, 250),
+                BorderStyle = BorderStyle.FixedSingle,
                 Cursor = Cursors.Hand
             };
             _thumbnail.Click += (s, e) => ThumbnailClicked?.Invoke(this, EventArgs.Empty);
             _thumbnail.MouseEnter += (s, e) => ThumbnailMouseEnter?.Invoke(this, EventArgs.Empty);
             _thumbnail.MouseLeave += (s, e) => ThumbnailMouseLeave?.Invoke(this, EventArgs.Empty);
 
-            // 文本编辑框 (在缩略图右侧)
+            // 文本编辑框
             _commentTextBox = new TextBox
             {
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
-                Location = new Point(DragHandleWidth + CheckBoxWidth + ThumbnailSize + 20, 5),
-                Height = ControlMinHeight - 20,
+                Location = new Point(IndexLabelWidth + CheckBoxWidth + ThumbnailSize + 18, 6),
+                Height = ControlMinHeight - 12,
                 Font = new Font("Microsoft YaHei", 10),
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(252, 252, 252)
             };
             _commentTextBox.TextChanged += (s, e) =>
             {
@@ -184,32 +180,32 @@ namespace BatchNote.Controls
                 }
             };
 
-            // 删除按钮 (在文本框右侧，加宽到50)
+            // 删除按钮
             _deleteButton = new Button
             {
-                Text = "删除",
-                Width = DeleteButtonWidth,
-                Height = ControlMinHeight - 20,
+                Text = "×",
+                Width = 32,
+                Height = ControlMinHeight - 12,
                 FlatStyle = FlatStyle.Flat,
-                ForeColor = Color.White,
-                BackColor = Color.FromArgb(200, 60, 60),
-                Font = new Font("Microsoft YaHei", 9),
+                ForeColor = Color.FromArgb(180, 80, 80),
+                BackColor = Color.FromArgb(255, 245, 245),
+                Font = new Font("Segoe UI", 14, FontStyle.Bold),
                 Cursor = Cursors.Hand
             };
-            _deleteButton.FlatAppearance.BorderSize = 0;
-            _deleteButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(230, 70, 70);
-            _deleteButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(180, 50, 50);
+            _deleteButton.FlatAppearance.BorderSize = 1;
+            _deleteButton.FlatAppearance.BorderColor = Color.FromArgb(230, 180, 180);
+            _deleteButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(255, 200, 200);
+            _deleteButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(220, 100, 100);
             _deleteButton.Click += (s, e) => DeleteRequested?.Invoke(this, EventArgs.Empty);
 
             // 添加控件
-            this.Controls.Add(_dragHandle);
-            this.Controls.Add(_checkBox);
             this.Controls.Add(_indexLabel);
+            this.Controls.Add(_checkBox);
             this.Controls.Add(_thumbnail);
             this.Controls.Add(_commentTextBox);
             this.Controls.Add(_deleteButton);
 
-            // 调整文本框和删除按钮位置
+            // 调整布局
             this.SizeChanged += (s, e) => UpdateLayout();
         }
 
@@ -218,21 +214,22 @@ namespace BatchNote.Controls
         /// </summary>
         private void UpdateLayout()
         {
-            int textBoxLeft = DragHandleWidth + CheckBoxWidth + ThumbnailSize + 20;
-            int textBoxWidth = this.Width - textBoxLeft - DeleteButtonWidth - 20;
+            const int deleteButtonWidth = 32;
+            int textBoxLeft = IndexLabelWidth + CheckBoxWidth + ThumbnailSize + 18;
+            int textBoxWidth = this.Width - textBoxLeft - deleteButtonWidth - 16;
             
             if (_entry != null && _entry.IsTextOnly)
             {
-                textBoxLeft = DragHandleWidth + CheckBoxWidth + 50;
-                textBoxWidth = this.Width - textBoxLeft - DeleteButtonWidth - 20;
+                textBoxLeft = IndexLabelWidth + CheckBoxWidth + 18;
+                textBoxWidth = this.Width - textBoxLeft - deleteButtonWidth - 16;
             }
 
-            _commentTextBox.Location = new Point(textBoxLeft, 5);
+            _commentTextBox.Location = new Point(textBoxLeft, 6);
             _commentTextBox.Width = Math.Max(100, textBoxWidth);
-            _commentTextBox.Height = ControlMinHeight - 20;
+            _commentTextBox.Height = ControlMinHeight - 12;
 
-            _deleteButton.Location = new Point(this.Width - DeleteButtonWidth - 10, 5);
-            _deleteButton.Height = ControlMinHeight - 20;
+            _deleteButton.Location = new Point(this.Width - deleteButtonWidth - 8, 6);
+            _deleteButton.Height = ControlMinHeight - 12;
         }
 
         /// <summary>
@@ -244,20 +241,20 @@ namespace BatchNote.Controls
 
             _checkBox.Checked = _entry.IsChecked;
             _checkBox.Text = _entry.IsChecked ? "✓" : "";
-            _checkBox.ForeColor = _entry.IsChecked ? Color.Green : Color.Gray;
-            _indexLabel.Text = $"[{_entry.Index}]";
+            _checkBox.ForeColor = _entry.IsChecked ? Color.FromArgb(0, 150, 80) : Color.FromArgb(180, 180, 180);
+            _checkBox.BackColor = _entry.IsChecked ? Color.FromArgb(232, 250, 238) : Color.FromArgb(250, 250, 250);
+            _checkBox.FlatAppearance.BorderColor = _entry.IsChecked ? Color.FromArgb(0, 180, 100) : Color.FromArgb(200, 200, 200);
+            _indexLabel.Text = $"{_entry.Index}";
             _commentTextBox.Text = _entry.Comment;
 
             if (_entry.IsTextOnly)
             {
                 _thumbnail.Visible = false;
-                _indexLabel.Location = new Point(DragHandleWidth + CheckBoxWidth + 10, 5);
             }
             else
             {
                 _thumbnail.Visible = true;
                 _thumbnail.Image = CreateThumbnail(_entry.DisplayImage);
-                _indexLabel.Location = new Point(DragHandleWidth + CheckBoxWidth + 10, 5);
             }
 
             UpdateLayout();
@@ -272,15 +269,16 @@ namespace BatchNote.Controls
 
             int thumbWidth, thumbHeight;
             float ratio = (float)source.Width / source.Height;
+            int maxSize = ThumbnailSize - 4;
 
             if (ratio > 1)
             {
-                thumbWidth = ThumbnailSize - 10;
+                thumbWidth = maxSize;
                 thumbHeight = (int)(thumbWidth / ratio);
             }
             else
             {
-                thumbHeight = ThumbnailSize - 40;
+                thumbHeight = maxSize;
                 thumbWidth = (int)(thumbHeight * ratio);
             }
 
@@ -309,7 +307,7 @@ namespace BatchNote.Controls
             if (_entry != null)
             {
                 _entry.Index = index;
-                _indexLabel.Text = $"[{index}]";
+                _indexLabel.Text = $"{index}";
             }
         }
 

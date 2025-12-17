@@ -13,8 +13,8 @@ namespace BatchNote.Services
     public class CompositeService
     {
         private const int Padding = 30;
-        private const int SeparatorHeight = 8;
-        private const int EntrySpacing = 40;
+        private const int SeparatorHeight = 6;
+        private const int EntrySpacing = 50;
         private const float MinFontSizeRatio = 0.02f;
 
         /// <summary>
@@ -149,38 +149,39 @@ namespace BatchNote.Services
             // 1. 绘制编号标题区域（带蓝色渐变背景）
             using (var brush = new LinearGradientBrush(
                 new Rectangle(0, y, canvasWidth, titleHeight),
-                Color.FromArgb(240, 248, 255),
-                Color.FromArgb(220, 235, 252),
+                Color.FromArgb(235, 245, 255),
+                Color.FromArgb(215, 230, 250),
                 LinearGradientMode.Vertical))
             {
                 g.FillRectangle(brush, 0, y, canvasWidth, titleHeight);
             }
             
             // 左侧蓝色强调条
-            using (var brush = new SolidBrush(Color.FromArgb(0, 122, 204)))
+            using (var brush = new SolidBrush(Color.FromArgb(0, 120, 200)))
             {
-                g.FillRectangle(brush, 0, y, 5, titleHeight);
+                g.FillRectangle(brush, 0, y, 4, titleHeight);
             }
             
-            // 编号文字
-            using (var font = new Font("Microsoft YaHei", titleFontSize, FontStyle.Bold))
-            using (var brush = new SolidBrush(Color.FromArgb(0, 100, 180)))
+            // 编号文字 - 垂直居中
+            using (var font = new Font("Segoe UI", titleFontSize, FontStyle.Bold))
+            using (var brush = new SolidBrush(Color.FromArgb(0, 90, 160)))
             {
-                var textY = y + (titleHeight - (int)titleFontSize) / 2 - 2;
-                g.DrawString($"[{entry.Index}]", font, brush, x + 5, textY);
+                var textSize = g.MeasureString($"[{entry.Index}]", font);
+                var textY = y + (titleHeight - textSize.Height) / 2;
+                g.DrawString($"[{entry.Index}]", font, brush, x + 8, textY);
             }
-            y += titleHeight + 15;
+            y += titleHeight + 20;
 
             // 2. 绘制图片
             if (!entry.IsTextOnly && entry.DisplayImage != null)
             {
                 // 图片边框
-                using (var pen = new Pen(Color.FromArgb(200, 200, 200), 1))
+                using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1))
                 {
                     g.DrawRectangle(pen, x - 1, y - 1, entry.DisplayImage.Width + 1, entry.DisplayImage.Height + 1);
                 }
                 g.DrawImage(entry.DisplayImage, x, y);
-                y += entry.DisplayImage.Height + 20;
+                y += entry.DisplayImage.Height + 25;
             }
 
             // 3. 绘制批注文本

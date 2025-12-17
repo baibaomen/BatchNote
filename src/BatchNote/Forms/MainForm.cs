@@ -62,13 +62,21 @@ namespace BatchNote.Forms
             _entriesPanel.DragOver += EntriesPanel_DragOver;
             _entriesPanel.DragDrop += EntriesPanel_DragDrop;
 
-            // 底部工具栏
+            // 底部工具栏 - 现代化样式
             _toolbarPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 50,
-                BackColor = Color.FromArgb(250, 250, 250),
-                Padding = new Padding(10, 10, 10, 10)
+                Height = 56,
+                BackColor = Color.White,
+                Padding = new Padding(12)
+            };
+            // 绘制顶部边线
+            _toolbarPanel.Paint += (s, e) =>
+            {
+                using (var pen = new Pen(Color.FromArgb(230, 230, 230), 1))
+                {
+                    e.Graphics.DrawLine(pen, 0, 0, _toolbarPanel.Width, 0);
+                }
             };
 
             var btnAddText = CreateToolbarButton("+ 文本", 0);
@@ -88,13 +96,13 @@ namespace BatchNote.Forms
             _toolbarPanel.Controls.Add(btnHistory);
             _toolbarPanel.Controls.Add(btnClear);
 
-            // 状态提示标签
+            // 状态提示标签 - 现代化样式
             _statusLabel = new Label
             {
-                Text = "💡 Ctrl+V 粘贴截图 | 热键: Ctrl+Shift+B",
+                Text = "💡 Ctrl+V 粘贴截图 | 热键: Ctrl+Shift+B 显示/隐藏",
                 AutoSize = true,
-                Location = new Point(420, 16),
-                ForeColor = Color.Gray,
+                Location = new Point(430, 18),
+                ForeColor = Color.FromArgb(130, 130, 130),
                 Font = new Font("Microsoft YaHei", 9)
             };
             _toolbarPanel.Controls.Add(_statusLabel);
@@ -118,22 +126,28 @@ namespace BatchNote.Forms
             if (total == 0)
             {
                 _statusLabel.ForeColor = Color.Gray;
-                _statusLabel.Text = "💡 Ctrl+V 粘贴截图 | 热键: Ctrl+Shift+B";
+                _statusLabel.Text = "💡 Ctrl+V 粘贴截图 | 热键: Ctrl+Shift+B 显示/隐藏";
             }
             else
             {
                 _statusLabel.ForeColor = Color.FromArgb(0, 120, 180);
-                _statusLabel.Text = $"📋 累计 {total} 条，选中 {selected} 条";
+                _statusLabel.Text = $"📋 累计 {total} 条，选中 {selected} 条 | 热键: Ctrl+Shift+B 显示/隐藏";
             }
         }
 
         /// <summary>
-        /// 显示临时状态消息（操作反馈）
+        /// 显示状态消息（持久显示，不自动重置）
         /// </summary>
         private void ShowStatus(string message, bool isSuccess = true)
         {
-            _statusLabel.ForeColor = isSuccess ? Color.Green : Color.Red;
-            _statusLabel.Text = message;
+            int total = _entryControls.Count;
+            int selected = _entryControls.Count(c => c.Entry.IsChecked);
+            
+            // 组合操作结果和当前统计
+            string stats = total > 0 ? $" | 累计 {total} 条，选中 {selected} 条" : "";
+            
+            _statusLabel.ForeColor = isSuccess ? Color.FromArgb(0, 150, 80) : Color.FromArgb(200, 60, 60);
+            _statusLabel.Text = message + stats;
         }
 
         private Button CreateToolbarButton(string text, int index)
@@ -141,18 +155,18 @@ namespace BatchNote.Forms
             var btn = new Button
             {
                 Text = text,
-                Width = 90,
-                Height = 32,
-                Location = new Point(10 + index * 100, 9),
+                Width = 95,
+                Height = 34,
+                Location = new Point(12 + index * 105, 11),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(0, 122, 204),
+                BackColor = Color.FromArgb(0, 120, 200),
                 ForeColor = Color.White,
                 Cursor = Cursors.Hand,
                 Font = new Font("Microsoft YaHei", 9, FontStyle.Regular)
             };
             btn.FlatAppearance.BorderSize = 0;
-            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(28, 151, 234);
-            btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(0, 102, 184);
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(30, 145, 220);
+            btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(0, 100, 175);
             return btn;
         }
 
@@ -315,7 +329,9 @@ namespace BatchNote.Forms
                 }
                 _entryControls.Clear();
                 _nextIndex = 1;
-                ShowStatus("🗑️ 数据已清空", true);
+                // 清空后显示初始提示
+                _statusLabel.ForeColor = Color.Gray;
+                _statusLabel.Text = "🗑️ 数据已清空 | Ctrl+V 粘贴截图";
             }
         }
 
