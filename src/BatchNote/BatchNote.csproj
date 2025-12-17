@@ -54,13 +54,28 @@
     <Compile Include="Forms\MainForm.Designer.cs">
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\PreviewForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\HistoryForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Controls\ScreenshotEntryControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Models\ScreenshotEntry.cs" />
     <Compile Include="Models\DrawingStroke.cs" />
     <Compile Include="Services\HotkeyService.cs" />
     <Compile Include="Services\CompositeService.cs" />
+    <Compile Include="Services\HistoryService.cs" />
     <EmbeddedResource Include="Forms\MainForm.resx">
       <DependentUpon>MainForm.cs</DependentUpon>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json">
+      <Version>13.0.3</Version>
+    </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
