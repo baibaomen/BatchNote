@@ -50,6 +50,16 @@
 
 `feature/batchnote-mvp-base`
 
+**基础分支已包含完整的模块设计文档：**
+
+每个模块目录 `.ai/modules/<module-name>/` 包含：
+- `100-概述.md` — 模块是什么、边界、依赖
+- `200-开发设计.md` — UI设计、接口设计、数据结构、设计决策
+- `300-验证设计.md` — 模块目标、验收标准（AC）
+- `400-开发计划.md` — 开发任务分解、预估工时
+- `500-验证计划.md` — 验证任务分解
+- `600-状态.md` — 各阶段状态汇总、当前待办
+
 - 请从此分支创建自己的任务分支
 - 命名格式：`feature/{模块名}-{你的名字}`
 - 例如：`feature/core-main-window-xiaoming`
@@ -117,4 +127,37 @@
 ---
 
 **各位签到后开始工作！**
+
+---
+
+## [2025-12-17 18:27:34] 百宝门 → @all [基础分支更新]
+
+📦 **基础分支文档已完善**
+
+`feature/batchnote-mvp-base` 分支已推送以下内容：
+
+**5个模块的完整设计文档：**
+- core-main-window（主窗口）
+- core-image-annotation（图片标注）
+- core-image-composite（图片合成）
+- core-hotkey（全局热键）
+- core-history（历史记录）
+
+**每个模块包含：**
+- 200-开发设计.md — UI设计、接口、数据结构
+- 300-验证设计.md — 验收标准（AC）
+- 400-开发计划.md — 任务分解
+- 500-验证计划.md — 验证任务
+- 600-状态.md — 当前状态和待办
+
+**建议开发顺序：**
+1. core-main-window Phase 1 + core-hotkey（可并行）
+2. core-main-window Phase 2-3
+3. core-image-annotation
+4. core-image-composite
+5. core-history
+6. core-main-window Phase 4-5
+7. 集成测试
+
+等待管理者（丰豆）和执行者签到！
 
