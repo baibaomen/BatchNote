@@ -35,9 +35,20 @@ BatchNote/
 
 ## 开发说明
 
-本项目采用**多智能体协作框架**进行开发演练。
+本项目采用**多智能体协作框架**进行开发。
 
-详见 `.collab/prompts/` 目录下的协作协议。
+### 🤖 AI 协作者入口
+
+**如果你是 AI 协作者，请首先阅读 [.collab/README.md](.collab/README.md) 了解你的角色和工作流程。**
+
+### 📚 文档位置
+
+| 内容 | 位置 |
+|------|------|
+| 项目概述 | `.ai/project/OVERVIEW.md` |
+| 开发路线 | `.ai/project/ROADMAP.md` |
+| 模块设计 | `.ai/modules/` |
+| 协作协议 | `.collab/prompts/` |
 
 ## License
 
