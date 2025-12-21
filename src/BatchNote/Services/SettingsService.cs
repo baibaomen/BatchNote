@@ -24,14 +24,14 @@ namespace BatchNote.Services
         public class AppSettings
         {
             /// <summary>
-            /// 热键主键（如 Keys.B）
+            /// 热键主键（如 Keys.V）
             /// </summary>
-            public Keys HotkeyKey { get; set; } = Keys.B;
+            public Keys HotkeyKey { get; set; } = Keys.V;
 
             /// <summary>
-            /// 热键修饰符（如 Control | Shift）
+            /// 热键修饰符（如 Alt）
             /// </summary>
-            public Keys HotkeyModifiers { get; set; } = Keys.Control | Keys.Shift;
+            public Keys HotkeyModifiers { get; set; } = Keys.Alt;
 
             /// <summary>
             /// 是否开机自动启动
@@ -47,6 +47,31 @@ namespace BatchNote.Services
             /// 是否首次运行（用于判断启动时是否显示主窗口）
             /// </summary>
             public bool IsFirstRun { get; set; } = true;
+            
+            /// <summary>
+            /// 窗体位置 X
+            /// </summary>
+            public int WindowX { get; set; } = -1;
+            
+            /// <summary>
+            /// 窗体位置 Y
+            /// </summary>
+            public int WindowY { get; set; } = -1;
+            
+            /// <summary>
+            /// 窗体宽度
+            /// </summary>
+            public int WindowWidth { get; set; } = 900;
+            
+            /// <summary>
+            /// 窗体高度
+            /// </summary>
+            public int WindowHeight { get; set; } = 975;
+            
+            /// <summary>
+            /// 窗体状态（Normal=0, Maximized=2）
+            /// </summary>
+            public int WindowState { get; set; } = 0;
         }
 
         public SettingsService()
@@ -191,6 +216,19 @@ namespace BatchNote.Services
         public void MarkFirstRunComplete()
         {
             _settings.IsFirstRun = false;
+            Save();
+        }
+        
+        /// <summary>
+        /// 保存窗体位置和大小
+        /// </summary>
+        public void SaveWindowBounds(int x, int y, int width, int height, int windowState)
+        {
+            _settings.WindowX = x;
+            _settings.WindowY = y;
+            _settings.WindowWidth = width;
+            _settings.WindowHeight = height;
+            _settings.WindowState = windowState;
             Save();
         }
 

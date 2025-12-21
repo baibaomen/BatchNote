@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using BatchNote.Controls;
@@ -24,6 +25,7 @@ namespace BatchNote.Forms
 
         private NotifyIcon _notifyIcon;
         private ContextMenuStrip _trayMenu;
+        private ToolStripMenuItem _hotkeyMenuItem;
 
         private Panel _historyPanel;
         private FlowLayoutPanel _historyListPanel;
@@ -37,6 +39,21 @@ namespace BatchNote.Forms
         private int _nextIndex = 1;
         private bool _hasUserEdits = false;  // 用户是否进行了人为编辑
         private HistoryItemControl _selectedHistoryItem = null;  // 当前选中的历史记录
+        private Rectangle _normalBounds;  // 保存正常状态下的窗体位置
+        private bool _isRestoringBounds = false;  // 正在恢复窗口位置，防止触发保存
+        private bool _isHiddenByHotkey = false;  // 是否被热键隐藏（用于 toggle 判断）
+        private static readonly string LogPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), 
+            "BatchNote", "window-debug.log");
+
+        private void Log(string message)
+        {
+            try
+            {
+                File.AppendAllText(LogPath, $"[{DateTime.Now:HH:mm:ss.fff}] {message}\n");
+            }
+            catch { }
+        }
 
         public MainForm()
         {
@@ -45,7 +62,27 @@ namespace BatchNote.Forms
             InitializeUI();
             InitializeTrayIcon();
             RegisterHotkey();
+            RestoreWindowBounds();
             ApplyStartupBehavior();
+            
+            // 窗体位置/大小/状态变化时保存
+            this.ResizeEnd += (s, e) => SaveWindowBounds();
+            this.LocationChanged += (s, e) => 
+            {
+                if (this.WindowState == FormWindowState.Normal)
+                {
+                    _normalBounds = this.Bounds;
+                    SaveWindowBounds();
+                }
+            };
+            this.SizeChanged += (s, e) =>
+            {
+                if (this.WindowState == FormWindowState.Normal)
+                {
+                    _normalBounds = this.Bounds;
+                }
+                SaveWindowBounds();
+            };
         }
 
         private void InitializeServices()
@@ -172,6 +209,9 @@ namespace BatchNote.Forms
 
             // 加载历史记录
             LoadHistoryList();
+            
+            // 更新状态显示真实热键
+            UpdateStatus();
         }
 
         /// <summary>
@@ -185,7 +225,7 @@ namespace BatchNote.Forms
             if (total == 0)
             {
                 _statusLabel.ForeColor = Color.Gray;
-                _statusLabel.Text = "💡 Ctrl+V 粘贴截图 | Ctrl+Shift+B";
+                _statusLabel.Text = $"💡 Ctrl+V 粘贴截图 | 热键: {GetHotkeyDisplayText()}";
             }
             else
             {
@@ -381,6 +421,8 @@ namespace BatchNote.Forms
                     control.ThumbnailMouseEnter += (s, e) => ShowPreview(control);
                     control.ThumbnailMouseLeave += (s, e) => HidePreview();
                     control.CheckedChanged += (s, e) => UpdateStatus();
+                    control.CommentFocused += (s, e) => ExpandEntryControl(control);
+                    control.CommentBlurred += (s, e) => CollapseEntryControl(control);
                     
                     newControls.Add(control);
                     _entryControls.Add(control);
@@ -433,9 +475,9 @@ namespace BatchNote.Forms
             _trayMenu.Items.Add(new ToolStripSeparator());
 
             // 设置全局热键
-            var hotkeyItem = new ToolStripMenuItem("设置全局热键...");
-            hotkeyItem.Click += (s, e) => ShowHotkeySettings();
-            _trayMenu.Items.Add(hotkeyItem);
+            _hotkeyMenuItem = new ToolStripMenuItem($"设置全局热键 ({GetHotkeyDisplayText()})...");
+            _hotkeyMenuItem.Click += (s, e) => ShowHotkeySettings();
+            _trayMenu.Items.Add(_hotkeyMenuItem);
 
             // 开机自动启动
             var autoStartItem = new ToolStripMenuItem("开机自动启动");
@@ -515,6 +557,90 @@ namespace BatchNote.Forms
             // 应用任务栏设置
             this.ShowInTaskbar = _settingsService.Settings.ShowInTaskbar;
         }
+        
+        /// <summary>
+        /// 恢复窗体位置和大小
+        /// </summary>
+        private void RestoreWindowBounds()
+        {
+            var settings = _settingsService.Settings;
+            
+            // 恢复大小
+            if (settings.WindowWidth > 0 && settings.WindowHeight > 0)
+            {
+                this.Width = settings.WindowWidth;
+                this.Height = settings.WindowHeight;
+            }
+            
+            // 恢复位置（需要检查是否在屏幕范围内）
+            if (settings.WindowX >= 0 && settings.WindowY >= 0)
+            {
+                var bounds = new Rectangle(settings.WindowX, settings.WindowY, this.Width, this.Height);
+                if (IsOnScreen(bounds))
+                {
+                    this.StartPosition = FormStartPosition.Manual;
+                    this.Location = new Point(settings.WindowX, settings.WindowY);
+                }
+            }
+            
+            // 保存正常状态的边界（使用保存的值，而非当前值）
+            _normalBounds = new Rectangle(settings.WindowX, settings.WindowY, settings.WindowWidth, settings.WindowHeight);
+            
+            // 恢复窗口状态（最大化）
+            if (settings.WindowState == (int)FormWindowState.Maximized)
+            {
+                this.WindowState = FormWindowState.Maximized;
+            }
+        }
+        
+        /// <summary>
+        /// 检查矩形是否在任意屏幕范围内
+        /// </summary>
+        private bool IsOnScreen(Rectangle rect)
+        {
+            foreach (var screen in Screen.AllScreens)
+            {
+                if (screen.WorkingArea.IntersectsWith(rect))
+                    return true;
+            }
+            return false;
+        }
+        
+        /// <summary>
+        /// 保存窗体位置和大小
+        /// </summary>
+        private void SaveWindowBounds()
+        {
+            // 正在恢复窗口位置时不保存
+            if (_isRestoringBounds)
+            {
+                Log("SaveWindowBounds: Skipped (restoring)");
+                return;
+            }
+            
+            // 如果是最大化状态，保存 _normalBounds；否则保存当前边界
+            if (this.WindowState == FormWindowState.Maximized)
+            {
+                Log($"SaveWindowBounds: Maximized, saving _normalBounds={_normalBounds}");
+                _settingsService.SaveWindowBounds(
+                    _normalBounds.X, 
+                    _normalBounds.Y, 
+                    _normalBounds.Width, 
+                    _normalBounds.Height,
+                    (int)FormWindowState.Maximized);
+            }
+            else if (this.WindowState == FormWindowState.Normal)
+            {
+                Log($"SaveWindowBounds: Normal, saving current={this.Bounds}");
+                _settingsService.SaveWindowBounds(
+                    this.Location.X, 
+                    this.Location.Y, 
+                    this.Width, 
+                    this.Height,
+                    (int)FormWindowState.Normal);
+            }
+            // Minimized 状态不保存
+        }
 
         /// <summary>
         /// 应用启动行为
@@ -523,14 +649,19 @@ namespace BatchNote.Forms
         {
             if (_settingsService.Settings.IsFirstRun)
             {
-                // 首次运行，显示主窗口
+                // 首次安装：显示主窗口 + 托盘气泡提示
                 this.Show();
+                this.WindowState = FormWindowState.Normal;
+                _notifyIcon.ShowBalloonTip(
+                    5000, 
+                    "BatchNote 已启动", 
+                    $"点击托盘图标或按 {GetHotkeyDisplayText()} 呼出主界面。\n首次使用建议设置全局热键。", 
+                    ToolTipIcon.Info);
                 _settingsService.MarkFirstRunComplete();
             }
             else
             {
-                // 非首次运行，最小化到托盘
-                this.WindowState = FormWindowState.Minimized;
+                // 日常启动：静默隐藏到托盘
                 this.Hide();
             }
         }
@@ -540,10 +671,56 @@ namespace BatchNote.Forms
         /// </summary>
         private void ShowMainWindow()
         {
+            // 从设置恢复位置和大小
+            _isRestoringBounds = true;
+            var settings = _settingsService.Settings;
+            var targetWidth = settings.WindowWidth;
+            var targetHeight = settings.WindowHeight;
+            var targetX = settings.WindowX;
+            var targetY = settings.WindowY;
+            Log($"ShowMainWindow: Restoring W={targetWidth} H={targetHeight} X={targetX} Y={targetY} State={settings.WindowState}");
+            
+            if (targetWidth > 0 && targetHeight > 0)
+            {
+                this.Width = targetWidth;
+                this.Height = targetHeight;
+            }
+            if (targetX >= 0 && targetY >= 0)
+            {
+                this.Location = new Point(targetX, targetY);
+            }
+            
             this.Show();
-            this.WindowState = FormWindowState.Normal;
+            Log($"ShowMainWindow: After Show, actual Bounds={this.Bounds}");
+            
+            // 恢复保存的窗口状态
+            var savedState = (FormWindowState)settings.WindowState;
+            if (savedState == FormWindowState.Maximized)
+            {
+                this.WindowState = FormWindowState.Maximized;
+            }
+            else
+            {
+                this.WindowState = FormWindowState.Normal;
+            }
             this.Activate();
             this.BringToFront();
+            
+            // 延迟再次强制设置尺寸，对抗 Windows 的自动调整
+            this.BeginInvoke(new Action(() =>
+            {
+                if (targetWidth > 0 && targetHeight > 0)
+                {
+                    this.Width = targetWidth;
+                    this.Height = targetHeight;
+                }
+                if (targetX >= 0 && targetY >= 0)
+                {
+                    this.Location = new Point(targetX, targetY);
+                }
+                Log($"ShowMainWindow: After BeginInvoke, Bounds={this.Bounds}, WindowState={this.WindowState}");
+                _isRestoringBounds = false;
+            }));
         }
 
         /// <summary>
@@ -572,6 +749,8 @@ namespace BatchNote.Forms
                     if (success)
                     {
                         ShowStatus($"✅ 热键已更新为 {GetHotkeyDisplayText()}", true);
+                        // 更新托盘菜单
+                        _hotkeyMenuItem.Text = $"设置全局热键 ({GetHotkeyDisplayText()})...";
                     }
                     else
                     {
@@ -644,15 +823,53 @@ namespace BatchNote.Forms
         /// </summary>
         private void ToggleVisibility()
         {
-            if (this.Visible)
+            Log($"ToggleVisibility: Visible={this.Visible}, WindowState={this.WindowState}, _isHiddenByHotkey={_isHiddenByHotkey}");
+            // 使用 _isHiddenByHotkey 判断状态
+            if (!_isHiddenByHotkey && this.Visible && this.WindowState != FormWindowState.Minimized)
             {
+                Log("ToggleVisibility: Hiding, saving bounds first");
+                SaveWindowBounds();
+                // 最小化到任务栏，然后隐藏（保留 Snap 状态）
+                this.WindowState = FormWindowState.Minimized;
                 this.Hide();
+                _isHiddenByHotkey = true;
             }
             else
             {
+                // 从设置恢复位置和大小
+                _isRestoringBounds = true;
+                _isHiddenByHotkey = false;
+                var settings = _settingsService.Settings;
+                var targetWidth = settings.WindowWidth > 0 ? settings.WindowWidth : this.Width;
+                var targetHeight = settings.WindowHeight > 0 ? settings.WindowHeight : this.Height;
+                var targetX = settings.WindowX >= 0 ? settings.WindowX : this.Left;
+                var targetY = settings.WindowY >= 0 ? settings.WindowY : this.Top;
+                Log($"ToggleVisibility: Showing, restoring W={targetWidth} H={targetHeight} X={targetX} Y={targetY} State={settings.WindowState}");
+                
+                // 暂停布局，减少闪烁
+                this.SuspendLayout();
+                
+                // 先设置位置和大小
+                this.StartPosition = FormStartPosition.Manual;
+                this.SetBounds(targetX, targetY, targetWidth, targetHeight);
+                // 显示窗口
                 this.Show();
+                this.WindowState = FormWindowState.Normal;
+                
+                // 恢复布局
+                this.ResumeLayout(true);
                 this.Activate();
                 this.BringToFront();
+                
+                Log($"ToggleVisibility: After Show, actual Bounds={this.Bounds}");
+                
+                // 延迟再次强制设置尺寸，对抗 Windows 的自动调整
+                this.BeginInvoke(new Action(() =>
+                {
+                    this.SetBounds(targetX, targetY, targetWidth, targetHeight);
+                    Log($"ToggleVisibility: After BeginInvoke, Bounds={this.Bounds}");
+                    _isRestoringBounds = false;
+                }));
             }
         }
 
@@ -709,6 +926,8 @@ namespace BatchNote.Forms
             control.ThumbnailMouseEnter += (s, e) => ShowPreview(control);
             control.ThumbnailMouseLeave += (s, e) => HidePreview();
             control.CheckedChanged += (s, e) => UpdateStatus();
+            control.CommentFocused += (s, e) => ExpandEntryControl(control);
+            control.CommentBlurred += (s, e) => CollapseEntryControl(control);
 
             _entryControls.Add(control);
             _entriesPanel.Controls.Add(control);
@@ -721,6 +940,38 @@ namespace BatchNote.Forms
 
             // 聚焦到文本框
             control.FocusCommentBox();
+        }
+        
+        /// <summary>
+        /// 扩展条目控件到最大高度
+        /// </summary>
+        private void ExpandEntryControl(ScreenshotEntryControl control)
+        {
+            // 先恢复其他所有控件
+            foreach (var c in _entryControls)
+            {
+                if (c != control)
+                {
+                    c.Collapse();
+                }
+            }
+            
+            // 计算可用高度：面板高度减去其他条目的高度（每个正常条目100px）
+            int otherEntriesCount = _entryControls.Count - 1;
+            int otherEntriesHeight = otherEntriesCount * 108;  // 100 + 8(margin)
+            int availableHeight = _entriesPanel.ClientSize.Height - otherEntriesHeight - 20;
+            control.Expand(Math.Max(200, availableHeight));
+            
+            // 滚动到当前控件
+            _entriesPanel.ScrollControlIntoView(control);
+        }
+        
+        /// <summary>
+        /// 恢复条目控件高度
+        /// </summary>
+        private void CollapseEntryControl(ScreenshotEntryControl control)
+        {
+            control.Collapse();
         }
 
         /// <summary>

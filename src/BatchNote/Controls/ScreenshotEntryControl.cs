@@ -24,6 +24,8 @@ namespace BatchNote.Controls
         private ScreenshotEntry _entry;
         private bool _isDragging;
         private Point _dragStartPoint;
+        
+        private bool _isExpanded = false;
 
         /// <summary>
         /// 关联的截图条目数据
@@ -67,6 +69,16 @@ namespace BatchNote.Controls
         /// 勾选状态变更事件
         /// </summary>
         public event EventHandler CheckedChanged;
+        
+        /// <summary>
+        /// 文本框获得焦点事件（用于扩展高度）
+        /// </summary>
+        public event EventHandler CommentFocused;
+        
+        /// <summary>
+        /// 文本框失去焦点事件（用于恢复高度）
+        /// </summary>
+        public event EventHandler CommentBlurred;
 
         public ScreenshotEntryControl()
         {
@@ -188,6 +200,8 @@ namespace BatchNote.Controls
                     CommentChanged?.Invoke(this, EventArgs.Empty);
                 }
             };
+            _commentTextBox.GotFocus += (s, e) => CommentFocused?.Invoke(this, EventArgs.Empty);
+            _commentTextBox.LostFocus += (s, e) => CommentBlurred?.Invoke(this, EventArgs.Empty);
 
             // 删除按钮
             _deleteButton = new Button
@@ -233,12 +247,38 @@ namespace BatchNote.Controls
                 textBoxWidth = this.Width - textBoxLeft - deleteButtonWidth - 16;
             }
 
+            int currentHeight = _isExpanded ? this.Height - 12 : ControlMinHeight - 12;
+
             _commentTextBox.Location = new Point(textBoxLeft, 6);
             _commentTextBox.Width = Math.Max(100, textBoxWidth);
-            _commentTextBox.Height = ControlMinHeight - 12;
+            _commentTextBox.Height = currentHeight;
 
             _deleteButton.Location = new Point(this.Width - deleteButtonWidth - 8, 6);
-            _deleteButton.Height = ControlMinHeight - 12;
+            _deleteButton.Height = currentHeight;
+            
+            _indexLabel.Height = currentHeight;
+            _checkBox.Height = currentHeight;
+            _thumbnail.Height = currentHeight;
+        }
+        
+        /// <summary>
+        /// 扩展控件高度
+        /// </summary>
+        public void Expand(int targetHeight)
+        {
+            _isExpanded = true;
+            this.Height = targetHeight;
+            UpdateLayout();
+        }
+        
+        /// <summary>
+        /// 恢复控件高度
+        /// </summary>
+        public void Collapse()
+        {
+            _isExpanded = false;
+            this.Height = ControlMinHeight;
+            UpdateLayout();
         }
 
         /// <summary>

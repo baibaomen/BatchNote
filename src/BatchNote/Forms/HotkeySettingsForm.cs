@@ -41,19 +41,29 @@ namespace BatchNote.Forms
         {
             // 窗口属性
             this.Text = "设置全局热键";
-            this.Size = new Size(400, 200);
+            this.Size = new Size(400, 230);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.StartPosition = FormStartPosition.CenterParent;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.Font = new Font("Microsoft YaHei", 9);
             this.KeyPreview = true;
+            
+            // 当前热键标签
+            var currentLabel = new Label
+            {
+                Text = $"当前热键: {GetHotkeyText(_currentKey, _currentModifiers)}",
+                Location = new Point(20, 15),
+                Size = new Size(350, 20),
+                ForeColor = Color.FromArgb(0, 120, 180),
+                Font = new Font("Microsoft YaHei", 9, FontStyle.Bold)
+            };
 
             // 说明标签
             _instructionLabel = new Label
             {
                 Text = "点击下方输入框，然后按下您想要的快捷键组合：\n（需要包含 Ctrl、Alt、Shift 中至少一个修饰键）",
-                Location = new Point(20, 20),
+                Location = new Point(20, 45),
                 Size = new Size(350, 40),
                 ForeColor = Color.FromArgb(80, 80, 80)
             };
@@ -61,7 +71,7 @@ namespace BatchNote.Forms
             // 热键显示框
             _hotkeyDisplay = new TextBox
             {
-                Location = new Point(20, 70),
+                Location = new Point(20, 95),
                 Size = new Size(350, 30),
                 Font = new Font("Microsoft YaHei", 12, FontStyle.Bold),
                 TextAlign = HorizontalAlignment.Center,
@@ -76,7 +86,7 @@ namespace BatchNote.Forms
             _okButton = new Button
             {
                 Text = "确定",
-                Location = new Point(115, 120),
+                Location = new Point(115, 145),
                 Size = new Size(80, 32),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(0, 120, 200),
@@ -95,12 +105,14 @@ namespace BatchNote.Forms
                     MessageBox.Show("请设置有效的快捷键组合！", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             };
+            
+            this.Controls.Add(currentLabel);
 
             // 重置按钮
             _resetButton = new Button
             {
                 Text = "重置默认",
-                Location = new Point(205, 120),
+                Location = new Point(205, 145),
                 Size = new Size(80, 32),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(100, 100, 100),
@@ -109,8 +121,8 @@ namespace BatchNote.Forms
             _resetButton.FlatAppearance.BorderSize = 0;
             _resetButton.Click += (s, e) =>
             {
-                _currentKey = Keys.B;
-                _currentModifiers = Keys.Control | Keys.Shift;
+                _currentKey = Keys.V;
+                _currentModifiers = Keys.Alt;
                 UpdateHotkeyDisplay();
             };
 
@@ -118,7 +130,7 @@ namespace BatchNote.Forms
             _cancelButton = new Button
             {
                 Text = "取消",
-                Location = new Point(295, 120),
+                Location = new Point(295, 145),
                 Size = new Size(80, 32),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(180, 180, 180),
@@ -216,6 +228,15 @@ namespace BatchNote.Forms
             if ((modifiers & Keys.Alt) == Keys.Alt) text += "Alt + ";
             if ((modifiers & Keys.Shift) == Keys.Shift) text += "Shift + ";
             return text;
+        }
+        
+        private string GetHotkeyText(Keys key, Keys modifiers)
+        {
+            if (key == Keys.None)
+            {
+                return "未设置";
+            }
+            return GetModifiersText(modifiers) + key.ToString();
         }
     }
 }

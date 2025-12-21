@@ -30,11 +30,12 @@ namespace BatchNote.Forms
         {
             this.components = new System.ComponentModel.Container();
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(900, 650);
+            this.ClientSize = new System.Drawing.Size(900, 975);
             this.Text = "BatchNote - 批量截图批注工具";
             this.TopMost = true;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.MinimumSize = new System.Drawing.Size(700, 400);
+            this.MinimumSize = new System.Drawing.Size(700, 600);
+            this.MinimizeBox = false;
         }
 
         #endregion
